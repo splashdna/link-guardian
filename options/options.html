@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Link Guardian Settings</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 1rem;
+      max-width: 500px;
+      margin: auto;
+    }
+    label {
+      display: block;
+      margin-top: 1rem;
+    }
+    input[type="text"] {
+      width: 100%;
+      padding: 0.5rem;
+      font-size: 1rem;
+    }
+    button {
+      margin-top: 1rem;
+      padding: 0.5rem 1rem;
+      font-size: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <h2>Whitelist Settings</h2>
+  <label for="whitelistUrl">Whitelist URL:</label>
+  <input type="text" id="whitelistUrl" style="width: 100%;" />
+  <button id="saveBtn">Save</button>
+
+  <p id="statusMessage" style="color: green;"></p>
+
+  <script src="options.js"></script>
+</body>
+</html>
