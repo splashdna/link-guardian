@@ -3,6 +3,9 @@
   "name": "Link Guardian",
   "version": "1.0",
   "description": "Blocks unsafe links in email messages.",
+    "icons": {
+    "48": "icon/icon.png"
+  },
   "permissions": [
     "messagesRead",
     "storage",
