@@ -32,17 +32,6 @@ updateBtn.style.boxShadow = "0 2px 6px rgba(0,0,0,0.2)";
 updateBtn.title = "Click to manually update the whitelist";
 document.body.appendChild(updateBtn);
 
-updateBtn.addEventListener("click", () => {
-  browser.runtime.sendMessage({ type: "refreshWhitelist" })
-    .then(() => {
-      alert("Whitelist updated.");
-    })
-    .catch(err => {
-      alert("Failed to update whitelist.");
-      console.error(err);
-    });
-});
-
 // === Admin Override Logic ===
 let overrideActive = false;
 
@@ -69,6 +58,8 @@ function showOverrideBanner() {
 
 function enableOverrideMode() {
   overrideActive = true;
+
+  // Re-enable all links
   document.querySelectorAll("a[href]").forEach(link => {
     link.style.pointerEvents = "auto";
     link.style.color = "";
@@ -78,8 +69,52 @@ function enableOverrideMode() {
   });
 
   console.warn("⚠ Admin override enabled — links are active.");
-  alert("Admin Override Activated.\nLinks have been re-enabled for this message.");
+  alert("Admin Override Activated.\nLinks have been re-enabled for this message for 30 seconds.");
   showOverrideBanner();
+
+  // Set timeout to disable override after 30 seconds
+  setTimeout(() => {
+    overrideActive = false;
+
+    // Restore protection
+    browser.runtime.sendMessage({ type: "getWhitelist" }).then(response => {
+      const whitelist = response.whitelist || [];
+
+      document.querySelectorAll("a[href]").forEach(link => {
+        const href = link.getAttribute("href");
+        if (!href || href.startsWith("mailto:") || href.startsWith("tel:")) return;
+
+        try {
+          const url = new URL(link.href);
+          const domain = url.hostname.replace(/^www\./, '');
+
+          const isWhitelisted = whitelist.some(allowed =>
+            domain === allowed || domain.endsWith("." + allowed)
+          );
+
+          if (!isWhitelisted) {
+            link.style.pointerEvents = "none";
+            link.style.color = "red";
+            link.style.textDecoration = "line-through";
+            link.title = "Blocked unsafe link";
+            link.addEventListener("click", preventClickHandler);
+          }
+        } catch (e) {
+          console.warn("Skipping malformed link:", link.href);
+        }
+      });
+
+      // Remove override banner
+      const banner = document.getElementById("link-guardian-banner");
+      if (banner) banner.remove();
+
+      alert("Admin Override expired.\nProtection re-enabled.");
+
+    }).catch(err => {
+      console.error("Error restoring link protection:", err);
+    });
+
+  }, 30000); // 30 seconds in milliseconds
 }
 
 function preventClickHandler(e) {
@@ -96,11 +131,8 @@ window.addEventListener("keydown", (e) => {
   }
 });
 
-// Whitelist logic
-browser.runtime.sendMessage({ type: "getWhitelist" }).then(response => {
-  const whitelist = response.whitelist || [];
-  console.log("Received whitelist:", whitelist);
-
+// === Whitelist enforcement logic extracted into a function ===
+function enforceWhitelist(whitelist) {
   document.querySelectorAll("a[href]").forEach(link => {
     const href = link.getAttribute("href");
 
@@ -122,13 +154,44 @@ browser.runtime.sendMessage({ type: "getWhitelist" }).then(response => {
         link.style.color = "red";
         link.style.textDecoration = "line-through";
         link.title = "Blocked unsafe link";
-
         link.addEventListener("click", preventClickHandler);
+      } else {
+        // Clean up styling if link is now allowed
+        link.style.pointerEvents = "";
+        link.style.color = "";
+        link.style.textDecoration = "";
+        link.title = "";
+        link.removeEventListener("click", preventClickHandler);
       }
     } catch (e) {
       console.warn("Skipping malformed link:", link.href);
     }
   });
+}
+
+// === Initial whitelist fetch ===
+browser.runtime.sendMessage({ type: "getWhitelist" }).then(response => {
+  const whitelist = response.whitelist || [];
+  console.log("Received whitelist:", whitelist);
+  enforceWhitelist(whitelist);
 }).catch(err => {
   console.error("Failed to get whitelist:", err);
+});
+
+// === Update button now refreshes the whitelist and mail content ===
+updateBtn.addEventListener("click", () => {
+  browser.runtime.sendMessage({ type: "refreshWhitelist" })
+    .then(() => {
+      alert("Whitelist updated. Refreshing links...");
+      return browser.runtime.sendMessage({ type: "getWhitelist" });
+    })
+    .then(response => {
+      const newWhitelist = response.whitelist || [];
+      console.log("Re-applying updated whitelist:", newWhitelist);
+      enforceWhitelist(newWhitelist);
+    })
+    .catch(err => {
+      alert("Failed to update whitelist.");
+      console.error(err);
+    });
 });
