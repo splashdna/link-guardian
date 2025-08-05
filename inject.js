@@ -102,6 +102,13 @@ browser.runtime.sendMessage({ type: "getWhitelist" }).then(response => {
   console.log("Received whitelist:", whitelist);
 
   document.querySelectorAll("a[href]").forEach(link => {
+    const href = link.getAttribute("href");
+
+    // Skip mailto: and tel: links
+    if (!href || href.startsWith("mailto:") || href.startsWith("tel:")) {
+      return;
+    }
+
     try {
       const url = new URL(link.href);
       const domain = url.hostname.replace(/^www\./, '');
